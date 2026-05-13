@@ -1,13 +1,15 @@
 """SQLite 数据库 — 模型与连接"""
 
 import json
+import os
 from datetime import datetime
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 
 
 # ==================== 数据库连接 ====================
 
-DATABASE_URL = "sqlite:///./documind.db"
+os.makedirs("data/database", exist_ok=True)
+DATABASE_URL = "sqlite:///./data/database/documind.db"
 engine = create_engine(DATABASE_URL, echo=False)
 
 

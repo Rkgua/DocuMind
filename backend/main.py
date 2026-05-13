@@ -9,7 +9,8 @@ from contextlib import asynccontextmanager
 
 # 加载 .env 文件（如果存在）
 from dotenv import load_dotenv
-load_dotenv()
+dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(dotenv_path)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
@@ -47,10 +48,9 @@ async def lifespan(app: FastAPI):
     # 初始化数据库
     init_db()
 
-    persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
     model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 
-    vector_store = VectorStore(persist_dir=persist_dir)
+    vector_store = VectorStore()
     rag_engine = RAGEngine(vector_store=vector_store, model=model)
 
     yield

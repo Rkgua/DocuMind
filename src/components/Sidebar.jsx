@@ -67,6 +67,11 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
     })
   }, [onDocsChange])
 
+  const showError = useCallback((msg) => {
+    setErrorMsg(msg)
+    setTimeout(() => setErrorMsg(''), 4000)
+  }, [])
+
   const handleDeleteDoc = useCallback(async (docId, e) => {
     e.stopPropagation()
     try {
@@ -80,11 +85,6 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
       showError('删除失败: 无法连接服务器')
     }
   }, [showError])
-
-  const showError = useCallback((msg) => {
-    setErrorMsg(msg)
-    setTimeout(() => setErrorMsg(''), 4000)
-  }, [])
 
   // 真实文件上传
   const handleUpload = useCallback(async (files) => {
