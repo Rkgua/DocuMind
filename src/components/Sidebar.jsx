@@ -3,7 +3,6 @@ import {
   MessageSquarePlus,
   Upload,
   Globe,
-  FileText,
   Trash2,
   History,
   Plus,
@@ -13,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 
-function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
+function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onLoadHistory }) {
   const [documents, setDocuments] = useState([]);
   const [history, setHistory] = useState([]);
   const [activeHistory, setActiveHistory] = useState(null);
@@ -37,13 +36,14 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
         const data = await res.json();
         const docs = data.documents || [];
         setDocuments(docs);
-        // 文档加载后同步所有 ID 到父组件（确保默认全部勾选生效）
-        onDocsChange(docs.map(d => d.id));
+        const ids = docs.map(d => d.id);
+        onTotalDocsChange(ids);
+        onDocsChange(ids);
       }
     } catch {
-      // 静默失败，后端还没启动时保留空列表
+      // 静默失败
     }
-  }, [onDocsChange]);
+  }, [onDocsChange, onTotalDocsChange]);
 
   // 加载历史对话
   const loadHistory = useCallback(async () => {
@@ -266,7 +266,7 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <div className="logo-icon">
-            <FileText size={18} />
+            <img src="/DocumindRobot.svg" alt="DocuMind" style={{ width: 20, height: 20 }} />
           </div>
           DocuMind
         </div>

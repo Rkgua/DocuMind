@@ -8,6 +8,7 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedDocs, setSelectedDocs] = useState([]);
+  const [totalDocIds, setTotalDocIds] = useState([]);
   const [references, setReferences] = useState({});
   const [sessionId, setSessionId] = useState(null);
   const abortControllerRef = useRef(null);
@@ -35,7 +36,8 @@ function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: text,
-            document_ids: selectedDocs,
+            // 全选时传 null（后端用全部文档），部分勾选时才传具体 ID
+            document_ids: selectedDocs.length === totalDocIds.length ? null : selectedDocs,
             session_id: sessionId,
           }),
           signal: controller.signal,
@@ -127,6 +129,7 @@ function App() {
       <Sidebar
         selectedDocs={selectedDocs}
         onDocsChange={setSelectedDocs}
+        onTotalDocsChange={setTotalDocIds}
         onNewChat={handleNewChat}
         onLoadHistory={handleLoadHistory}
       />
