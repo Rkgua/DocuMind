@@ -5,22 +5,36 @@ import uuid
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
-def parse_file(file_path: str) -> list[dict]:
-    """解析文件并返回分块后的文档片段"""
+def parse_file(file_path: str, original_filename: str = "") -> list[dict]:
+    """解析文件并返回分块后的文档片段
+
+    Args:
+        file_path: 临时文件路径
+        original_filename: 上传时的原始文件名，用于从 .md 提取标题
+    """
     ext = os.path.splitext(file_path)[1].lower()
-    filename = os.path.basename(file_path)
+    filename = original_filename or os.path.basename(file_path)
 
     if ext == ".pdf":
         text = _parse_pdf(file_path)
     elif ext in (".docx", ".doc"):
         text = _parse_docx(file_path)
     else:
-        # .md / .txt 直接读
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        # .md / .txt 直接读（utf-8-sig 兼容 BOM）
+        with open(file_path, "r", encoding="utf-8-sig", errors="ignore") as f:
             text = f.read()
 
     if not text.strip():
         return []
+
+    # 从 .md 文件提取标题（第一个 # 标题）
+    title = filename
+    if ext == ".md":
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("# ") and not stripped.startswith("## "):
+                title = stripped[2:].strip()
+                break
 
     # 分块
     splitter = RecursiveCharacterTextSplitter(
@@ -40,6 +54,7 @@ def parse_file(file_path: str) -> list[dict]:
             "metadata": {
                 "file_id": doc_id,
                 "filename": filename,
+                "title": title,
                 "chunk": i,
                 "source": file_path,
             },

@@ -4,7 +4,6 @@ import os
 import sys
 import uuid
 import tempfile
-from datetime import datetime
 from contextlib import asynccontextmanager
 
 # 加载 .env 文件（如果存在）
@@ -33,7 +32,7 @@ from rag.vector_store import VectorStore
 from rag.engine import RAGEngine
 from parsers.document_parser import parse_file
 from parsers.web_scraper import scrape_url
-from database import init_db, get_session, ConversationDB, DocumentMetaDB
+from database import init_db, get_session, ConversationDB, DocumentChunkDB
 
 # ---------- 全局状态 ----------
 vector_store: VectorStore = None
@@ -140,6 +139,13 @@ async def upload_documents(files: list[UploadFile] = File(...)):
     """上传并解析文档"""
     results = []
     for file in files:
+        # 去重：检查文件名是否已存在
+        if vector_store.find_by_filename(file.filename):
+            raise HTTPException(
+                status_code=400,
+                detail=f"文件「{file.filename}」已存在，请勿重复导入",
+            )
+
         suffix = os.path.splitext(file.filename)[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             content = await file.read()
@@ -147,7 +153,7 @@ async def upload_documents(files: list[UploadFile] = File(...)):
             tmp_path = tmp.name
 
         try:
-            chunks = parse_file(tmp_path)
+            chunks = parse_file(tmp_path, original_filename=file.filename)
             if not chunks:
                 continue
 
@@ -157,18 +163,8 @@ async def upload_documents(files: list[UploadFile] = File(...)):
             vector_store.add_documents(ids, texts, metadatas)
 
             file_id = chunks[0]["metadata"]["file_id"]
-
-            # 写入 SQLite
-            with get_session() as db:
-                meta = DocumentMetaDB(
-                    id=file_id,
-                    name=file.filename,
-                    pages=f"{len(chunks)}段",
-                )
-                db.add(meta)
-                db.commit()
-
-            results.append({"id": file_id, "name": file.filename})
+            doc_title = chunks[0]["metadata"].get("title", file.filename)
+            results.append({"id": file_id, "name": file.filename, "title": doc_title})
         finally:
             os.unlink(tmp_path)
 
@@ -191,16 +187,6 @@ async def scrape_document(req: ScrapeRequest):
         file_id = chunks[0]["metadata"]["file_id"]
         filename = chunks[0]["metadata"]["filename"]
 
-        # 写入 SQLite
-        with get_session() as db:
-            meta = DocumentMetaDB(
-                id=file_id,
-                name=filename,
-                pages=f"{len(chunks)}段",
-            )
-            db.add(meta)
-            db.commit()
-
         return {"id": file_id, "name": filename, "chunks": len(chunks)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -210,16 +196,8 @@ async def scrape_document(req: ScrapeRequest):
 async def list_documents():
     """列出已入库文档"""
     docs = vector_store.list_documents()
-
-    # 从 SQLite 补充元数据
-    with get_session() as db:
-        for doc in docs:
-            meta = db.get(DocumentMetaDB, doc["id"])
-            if meta:
-                doc["pages"] = meta.pages
-
     return DocumentListResponse(documents=[
-        DocumentItem(id=d["id"], name=d["name"], pages=d.get("pages", ""))
+        DocumentItem(id=d["id"], name=d["name"], title=d.get("title", ""), pages=d.get("pages", ""))
         for d in docs
     ])
 
@@ -228,11 +206,6 @@ async def list_documents():
 async def delete_document(file_id: str):
     """删除文档"""
     vector_store.delete_document(file_id)
-    with get_session() as db:
-        meta = db.get(DocumentMetaDB, file_id)
-        if meta:
-            db.delete(meta)
-            db.commit()
     return {"ok": True}
 
 

@@ -26,6 +26,7 @@ class ConversationListResponse(BaseModel):
 class DocumentItem(BaseModel):
     id: str
     name: str
+    title: str = ""
     pages: str = ""
     selected: bool = True
 
