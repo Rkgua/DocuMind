@@ -78,14 +78,14 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
                 className={`message-wrapper ${msg.role}`}
               >
                 <div className={`message-bubble ${msg.role}`}>
-                  {msg.role === 'ai' ? (
+                  {msg.role === 'ai' || msg.role === 'assistant' ? (
                     <div className="message-content">
                       {msg.content ? (
                         <MarkdownRenderer content={msg.content} />
                       ) : (
                         <span className="typing-cursor" />
                       )}
-                      {msg.role === 'ai' && msg.content && idx === messages.length - 1 && (
+                      {(msg.role === 'ai' || msg.role === 'assistant') && msg.content && idx === messages.length - 1 && (
                         <ReferencePanel sources={references[msg.id]} />
                       )}
                     </div>

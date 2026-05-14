@@ -9,6 +9,8 @@ import {
   Plus,
   Library,
   Loader2,
+  Eye,
+  X,
 } from "lucide-react";
 
 function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
@@ -22,6 +24,9 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [scrapeError, setScrapeError] = useState("");
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [previewChunks, setPreviewChunks] = useState([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   // 加载文档列表
@@ -30,12 +35,15 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
       const res = await fetch("/api/documents");
       if (res.ok) {
         const data = await res.json();
-        setDocuments(data.documents || []);
+        const docs = data.documents || [];
+        setDocuments(docs);
+        // 文档加载后同步所有 ID 到父组件（确保默认全部勾选生效）
+        onDocsChange(docs.map(d => d.id));
       }
     } catch {
       // 静默失败，后端还没启动时保留空列表
     }
-  }, []);
+  }, [onDocsChange]);
 
   // 加载历史对话
   const loadHistory = useCallback(async () => {
@@ -77,6 +85,28 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
     setTimeout(() => setErrorMsg(""), 4000);
   }, []);
 
+  const handlePreviewDoc = useCallback(async (docId, e) => {
+    e.stopPropagation();
+    setPreviewLoading(true);
+    setPreviewDoc(docId);
+    try {
+      const res = await fetch(`/api/documents/${docId}/chunks`);
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewChunks(data.chunks || []);
+      }
+    } catch {
+      setPreviewChunks([]);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, []);
+
+  const handleClosePreview = useCallback(() => {
+    setPreviewDoc(null);
+    setPreviewChunks([]);
+  }, []);
+
   const handleDeleteDoc = useCallback(
     async (docId, e) => {
       e.stopPropagation();
@@ -88,12 +118,16 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
           showError("删除失败");
           return;
         }
-        setDocuments((prev) => prev.filter((d) => d.id !== docId));
+        setDocuments((prev) => {
+          const updated = prev.filter((d) => d.id !== docId);
+          onDocsChange(updated.map((d) => d.id));
+          return updated;
+        });
       } catch {
         showError("删除失败: 无法连接服务器");
       }
     },
-    [showError],
+    [showError, onDocsChange],
   );
 
   // 真实文件上传
@@ -200,7 +234,7 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
         if (res.ok) {
           const data = await res.json();
           if (data.messages && onLoadHistory) {
-            onLoadHistory(data.messages);
+            onLoadHistory(data.messages, histId);
           }
         }
       } catch {
@@ -209,6 +243,22 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
     },
     [onLoadHistory],
   );
+
+  const handleDeleteHistory = useCallback(async (histId, e) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/conversations/${histId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setHistory((prev) => prev.filter((h) => h.id !== histId));
+        // 如果删除的是当前活跃对话，重置
+        setActiveHistory((prev) => (prev === histId ? null : prev));
+      }
+    } catch {
+      // 静默失败
+    }
+  }, []);
 
   return (
     <aside className="sidebar">
@@ -220,7 +270,7 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
           </div>
           DocuMind
         </div>
-        <button className="new-chat-btn" onClick={onNewChat}>
+        <button className="new-chat-btn" onClick={() => { onNewChat(); loadHistory(); }}>
           <Plus size={16} />
           新建对话
         </button>
@@ -375,6 +425,20 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
                     />
                     <span className="doc-name" title={doc.name}>{doc.title || doc.name}</span>
                     <span className="doc-pages">{doc.pages || ""}</span>
+                    <button
+                      className="doc-action-btn doc-preview-btn"
+                      onClick={(e) => handlePreviewDoc(doc.id, e)}
+                      title="查看分块数据"
+                    >
+                      <Eye size={13} />
+                    </button>
+                    <button
+                      className="doc-action-btn doc-delete-btn"
+                      onClick={(e) => handleDeleteDoc(doc.id, e)}
+                      title="删除文档"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </label>
                 ))}
               </div>
@@ -426,6 +490,13 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
                         {h.created_at || h.date}
                       </div>
                     </div>
+                    <button
+                      className="history-delete-btn"
+                      onClick={(e) => handleDeleteHistory(h.id, e)}
+                      title="删除对话"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 ))
               )}
@@ -433,6 +504,47 @@ function Sidebar({ selectedDocs, onDocsChange, onNewChat, onLoadHistory }) {
           </div>
         </div>
       </div>
+
+      {/* 分块预览弹窗 */}
+      {previewDoc && (
+        <div className="preview-overlay" onClick={handleClosePreview}>
+          <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="preview-header">
+              <h3>文档分块数据</h3>
+              <div className="preview-header-right">
+                <span className="preview-chunk-count">{previewChunks.length} 个块</span>
+                <button className="preview-close-btn" onClick={handleClosePreview}>
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="preview-body">
+              {previewLoading ? (
+                <div style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>
+                  <div className="spinner" style={{ margin: "0 auto 8px" }} />
+                  加载中...
+                </div>
+              ) : previewChunks.length === 0 ? (
+                <div style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>
+                  暂无分块数据
+                </div>
+              ) : (
+                <div className="preview-chunks">
+                  {previewChunks.map((chunk, i) => (
+                    <div key={chunk.id} className="preview-chunk-item">
+                      <div className="preview-chunk-header">
+                        <span className="preview-chunk-num">块 #{i + 1}</span>
+                        <span className="preview-chunk-id">{chunk.id}</span>
+                      </div>
+                      <pre className="preview-chunk-content">{chunk.content}</pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

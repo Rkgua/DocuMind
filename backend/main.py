@@ -202,6 +202,14 @@ async def list_documents():
     ])
 
 
+@app.get("/api/documents/{file_id}/chunks")
+async def get_document_chunks(file_id: str):
+    """获取某个文档的所有分块数据"""
+    chunks = vector_store.get_chunks(file_id)
+    if not chunks:
+        raise HTTPException(status_code=404, detail="文档未找到")
+    return {"chunks": chunks}
+
 @app.delete("/api/documents/{file_id}")
 async def delete_document(file_id: str):
     """删除文档"""
@@ -232,6 +240,18 @@ async def get_conversation(session_id: str):
         if not conv:
             raise HTTPException(status_code=404, detail="会话未找到")
         return {"messages": conv.get_messages()}
+
+
+@app.delete("/api/conversations/{session_id}")
+async def delete_conversation(session_id: str):
+    """删除历史会话"""
+    with get_session() as db:
+        conv = db.get(ConversationDB, session_id)
+        if not conv:
+            raise HTTPException(status_code=404, detail="会话未找到")
+        db.delete(conv)
+        db.commit()
+    return {"ok": True}
 
 
 # ==================== 启动 ====================

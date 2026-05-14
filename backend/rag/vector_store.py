@@ -185,6 +185,23 @@ class VectorStore:
         self._vectors = None
         self._rebuild_cache()
 
+    def get_chunks(self, file_id: str) -> list[dict]:
+        """获取某个文件的所有分块"""
+        with get_session() as db:
+            stmt = select(DocumentChunkDB).where(
+                DocumentChunkDB.file_id == file_id
+            ).order_by(DocumentChunkDB.id)
+            rows = db.exec(stmt).all()
+        result = []
+        for r in rows:
+            result.append({
+                "id": r.id,
+                "content": r.content,
+                "page_info": r.page_info,
+                "metadata": r.get_metadata(),
+            })
+        return result
+
     def find_by_filename(self, filename: str) -> bool:
         """检查文件名是否已存在"""
         with get_session() as db:

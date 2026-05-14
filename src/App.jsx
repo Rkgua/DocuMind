@@ -111,8 +111,15 @@ function App() {
     setSessionId(null)
   }, [])
 
-  const handleLoadHistory = useCallback((historyMessages) => {
-    setMessages(historyMessages)
+  const handleLoadHistory = useCallback((historyMessages, histId) => {
+    // 给历史消息补 id（用于参考来源匹配）
+    const withIds = historyMessages.map((msg, i) => ({
+      ...msg,
+      id: msg.id || `hist_${i}`,
+    }))
+    setMessages(withIds)
+    setSessionId(histId)
+    setReferences({})
   }, [])
 
   return (

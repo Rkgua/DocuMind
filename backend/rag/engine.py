@@ -83,12 +83,18 @@ class RAGEngine:
         # 本地文档模式：检索相关文档
         relevant_docs = self.vector_store.similarity_search(message, k=5)
 
-        # 按 file_id 过滤
-        if document_ids:
+        # 按 file_id 过滤（空数组 = 不选任何文档，None = 全部使用）
+        if document_ids is not None:
             relevant_docs = [
                 d for d in relevant_docs
                 if d["metadata"].get("file_id") in document_ids
             ]
+
+        # 保留相似度最高的结果（score = 1 - cosine_sim，越低越相关）
+        # 同时丢弃与最佳得分差距过大的结果，确保参考来源有实际价值
+        if relevant_docs:
+            best = relevant_docs[0]["score"]
+            relevant_docs = [d for d in relevant_docs if d["score"] - best < 0.15]
 
         # 无相关文档时直接返回固定提示
         if not relevant_docs:
@@ -127,18 +133,21 @@ class RAGEngine:
                 yield chunk.choices[0].delta.content
 
     def get_references(self, query: str, document_ids: list[str] | None = None) -> list[dict]:
-        """获取问答的引用来源"""
+        """获取问答的引用来源（按相关性从高到低排序）"""
         docs = self.vector_store.similarity_search(query, k=5)
-        if document_ids:
+        if document_ids is not None:
             docs = [d for d in docs if d["metadata"].get("file_id") in document_ids]
+        # 只保留与最佳得分接近的结果
+        if docs:
+            best = docs[0]["score"]
+            docs = [d for d in docs if d["score"] - best < 0.15]
+        # 按 score 升序排列（越小越相关）
+        docs.sort(key=lambda d: d["score"])
         sources = []
-        seen_files = set()
         for doc in docs:
-            file_id = doc["metadata"].get("file_id", doc["metadata"].get("source", ""))
-            if file_id and file_id not in seen_files:
-                seen_files.add(file_id)
-                sources.append({
-                    "title": f"参考自《{doc['metadata'].get('filename', file_id)}》",
-                    "snippet": doc["content"][:200],
-                })
+            filename = doc["metadata"].get("filename", doc["metadata"].get("file_id", "未知文档"))
+            sources.append({
+                "title": filename,
+                "snippet": doc["content"][:300].strip(),
+            })
         return sources
