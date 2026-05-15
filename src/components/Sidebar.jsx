@@ -26,6 +26,7 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewChunks, setPreviewChunks] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [processingMsg, setProcessingMsg] = useState("");
   const fileInputRef = useRef(null);
 
   // 加载文档列表
@@ -135,6 +136,9 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
     async (files) => {
       const formData = new FormData();
       Array.from(files).forEach((file) => formData.append("files", file));
+      const fileNames = Array.from(files).map(f => f.name);
+
+      setProcessingMsg(`正在解析 ${fileNames[0]}${fileNames.length > 1 ? ` 等 ${fileNames.length} 个文件` : ''}...`);
 
       try {
         const res = await fetch("/api/documents/upload", {
@@ -142,11 +146,14 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
           body: formData,
         });
         if (!res.ok) {
+          setProcessingMsg("");
           showError(`上传失败: ${res.status}`);
           return;
         }
         const result = await res.json();
+        setProcessingMsg("正在将文本向量化并入库...");
         await loadDocuments();
+        setProcessingMsg("");
         if (result.files) {
           setUploadProgress(
             result.files.map((f) => ({
@@ -159,6 +166,7 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
           setTimeout(() => setUploadProgress([]), 3000);
         }
       } catch {
+        setProcessingMsg("");
         showError("上传失败: 无法连接服务器");
       }
     },
@@ -202,6 +210,7 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
     if (!scrapeUrl.trim()) return;
     setIsScraping(true);
     setScrapeError("");
+    setProcessingMsg("正在抓取网页内容...");
     try {
       const res = await fetch("/api/documents/scrape", {
         method: "POST",
@@ -213,9 +222,12 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
         setScrapeError(data.detail || `抓取失败: ${res.status}`);
         return;
       }
+      setProcessingMsg("正在将文本向量化并入库...");
       await loadDocuments();
+      setProcessingMsg("");
       setScrapeUrl("");
     } catch {
+      setProcessingMsg("");
       setScrapeError("抓取失败: 无法连接服务器");
     } finally {
       setIsScraping(false);
@@ -291,6 +303,12 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
             }}
           >
             {errorMsg}
+          </div>
+        )}
+        {processingMsg && (
+          <div className="processing-banner">
+            <div className="processing-spinner" />
+            {processingMsg}
           </div>
         )}
         {/* Knowledge Base Section */}

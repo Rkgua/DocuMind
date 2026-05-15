@@ -7,11 +7,17 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
   const [input, setInput] = useState('')
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
+  const scrollContainerRef = useRef(null)
 
-  // Auto scroll to bottom
+  // 平滑滚动至最新内容
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    const container = scrollContainerRef.current
+    if (!container) return
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150
+    if (isNearBottom || isStreaming) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+  }, [messages, isStreaming])
 
   // Auto resize textarea
   useEffect(() => {
@@ -24,14 +30,13 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
 
   const handleSend = useCallback(() => {
     const text = input.trim()
-    if (!text || isStreaming) return
+    if (!text) return
     onSend(text)
     setInput('')
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-  }, [input, isStreaming, onSend])
+  }, [input, onSend])
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -60,7 +65,7 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
       </div>
 
       {/* Messages */}
-      <div className="chat-messages">
+      <div className="chat-messages" ref={scrollContainerRef}>
         {!hasMessages ? (
           <div className="empty-state">
             <Sparkles size={56} className="empty-icon" />
@@ -105,12 +110,11 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
         <div className="chat-input-wrapper">
           <textarea
             ref={textareaRef}
-            placeholder="输入您的问题... (Shift+Enter 换行)"
+            placeholder={isStreaming ? 'AI 正在回答中，可继续输入补充问题...' : '输入您的问题... (Shift+Enter 换行)'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={1}
-            disabled={isStreaming}
           />
           <div className="chat-input-actions">
             <button
@@ -141,7 +145,7 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
           </div>
         </div>
         <div className="chat-input-hint">
-          Enter 发送 · Shift+Enter 换行
+          {isStreaming ? '点击 ■ 停止生成 · 也可继续输入补充问题' : 'Enter 发送 · Shift+Enter 换行'}
         </div>
       </div>
     </main>
