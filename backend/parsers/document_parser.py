@@ -19,6 +19,8 @@ def parse_file(file_path: str, original_filename: str = "") -> list[dict]:
         text = _parse_pdf(file_path)
     elif ext in (".docx", ".doc"):
         text = _parse_docx(file_path)
+    elif ext in (".pptx", ".ppt"):
+        text = _parse_pptx(file_path)
     else:
         # .md / .txt 直接读（utf-8-sig 兼容 BOM）
         with open(file_path, "r", encoding="utf-8-sig", errors="ignore") as f:
@@ -65,7 +67,7 @@ def parse_file(file_path: str, original_filename: str = "") -> list[dict]:
 
 def _parse_pdf(file_path: str) -> str:
     """解析 PDF 文件"""
-    from PyPDF2 import PdfReader
+    from pypdf import PdfReader
     
     try:
         reader = PdfReader(file_path)
@@ -89,3 +91,24 @@ def _parse_docx(file_path: str) -> str:
         if para.text.strip():
             text.append(para.text)
     return "\n".join(text)
+
+
+def _parse_pptx(file_path: str) -> str:
+    """解析 PPTX 文件（无需 python-pptx，直接用 zipfile + lxml 提取文本）"""
+    import zipfile
+    from lxml import etree
+    try:
+        text = []
+        with zipfile.ZipFile(file_path, "r") as z:
+            for name in z.namelist():
+                if name.startswith("ppt/slides/slide") and name.endswith(".xml"):
+                    xml = z.read(name)
+                    root = etree.fromstring(xml)
+                    ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
+                    for t in root.iter("{http://schemas.openxmlformats.org/drawingml/2006/main}t"):
+                        if t.text:
+                            text.append(t.text)
+        return "\n\n".join(text)
+    except Exception as e:
+        print(f"PPTX解析错误: {e}")
+        return ""

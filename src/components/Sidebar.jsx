@@ -332,12 +332,12 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
               <div className="upload-text">
                 <strong>点击上传</strong> 或拖拽文件到此处
               </div>
-              <div className="upload-hint">支持 PDF、DOCX、MD、TXT 格式</div>
+              <div className="upload-hint">支持 PDF、DOCX、PPTX、MD、TXT 格式</div>
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.docx,.doc,.md,.txt"
+                accept=".pdf,.docx,.doc,.pptx,.ppt,.md,.txt"
                 style={{ display: "none" }}
                 onChange={handleFileChange}
               />
