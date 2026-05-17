@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Square, Trash2, Sparkles } from 'lucide-react'
 import MarkdownRenderer from './MarkdownRenderer'
 import ReferencePanel from './ReferencePanel'
-
 function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNewChat }) {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef(null)
@@ -65,10 +64,9 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
       </div>
 
       {/* Messages */}
-      <div className="chat-messages" ref={scrollContainerRef}>
+      <div className="chat-messages" ref={scrollContainerRef} style={{ position: 'relative' }}>
         {!hasMessages ? (
           <div className="empty-state">
-            <Sparkles size={56} className="empty-icon" />
             <div className="empty-title">DocuMind 智能文档助手</div>
             <div className="empty-subtitle">
               支持对 PDF、DOCX、MD、TXT 等多种格式文档进行智能问答与分析。

@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import "./App.css";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
+import RobotAvatar from "./components/RobotAvatar";
 
 function App() {
   //状态管理部分
@@ -11,8 +12,24 @@ function App() {
   const [totalDocIds, setTotalDocIds] = useState([]);
   const [references, setReferences] = useState({});
   const [sessionId, setSessionId] = useState(null);
+  const [robotStatus, setRobotStatus] = useState("entrance");
   const abortControllerRef = useRef(null);
+  const isFirstStreamingRef = useRef(true);
 
+  // 页面加载 → 闪亮登场 → 待机1放松
+  useEffect(() => {
+    const t = setTimeout(() => setRobotStatus("idle-relax-1"), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // 流式生成时 → 思考，结束后 → 待机2发光（跳过首次挂载）
+  useEffect(() => {
+    if (isFirstStreamingRef.current) {
+      isFirstStreamingRef.current = false;
+      return;
+    }
+    setRobotStatus(isStreaming ? "thinking" : "idle-glow-2");
+  }, [isStreaming]);
 
   // 核心发送逻辑，使用 useCallback 包裹以避免不必要的重渲染
   const handleSend = useCallback(
@@ -37,7 +54,8 @@ function App() {
           body: JSON.stringify({
             message: text,
             // 全选时传 null（后端用全部文档），部分勾选时才传具体 ID
-            document_ids: selectedDocs.length === totalDocIds.length ? null : selectedDocs,
+            document_ids:
+              selectedDocs.length === totalDocIds.length ? null : selectedDocs,
             session_id: sessionId,
           }),
           signal: controller.signal,
@@ -108,24 +126,35 @@ function App() {
   }, []);
 
   const handleNewChat = useCallback(() => {
-    setMessages([])
-    setReferences({})
-    setSessionId(null)
-  }, [])
+    setMessages([]);
+    setReferences({});
+    setSessionId(null);
+  }, []);
 
   const handleLoadHistory = useCallback((historyMessages, histId) => {
     // 给历史消息补 id（用于参考来源匹配）
     const withIds = historyMessages.map((msg, i) => ({
       ...msg,
       id: msg.id || `hist_${i}`,
-    }))
-    setMessages(withIds)
-    setSessionId(histId)
-    setReferences({})
-  }, [])
+    }));
+    setMessages(withIds);
+    setSessionId(histId);
+    setReferences({});
+  }, []);
 
   return (
     <div className="app-container">
+      <div className="robot-fixed">
+        <RobotAvatar
+          status={robotStatus}
+          size={250}
+          onClick={() =>
+            setRobotStatus((s) =>
+              s === "thinking" ? "idle-relax-1" : "thinking",
+            )
+          }
+        />
+      </div>
       <Sidebar
         selectedDocs={selectedDocs}
         onDocsChange={setSelectedDocs}
