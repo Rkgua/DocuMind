@@ -1,6 +1,12 @@
 # 多格式文档与网页内容解析助手 Documind
 
 ![alt text](./public/DocumindRobot.svg)
+基本样式展示
+![alt text](image.png)
+引入基本根据用户状态切换的gif
+![alt text](./public/待机1-放松.gif)
+![alt text](./public/闪亮登场.gif)
+![alt text](./public/待机2-发光.gif)
 技术栈：
 React（前端） + Python FastAPI（后端）+SQLite(嵌入式关系型数据库) + LangChain+ChromaDB(向量型数据库) + DeepSeek+ BGE/bge-small-zh（中文 Embedding 模型）
 
