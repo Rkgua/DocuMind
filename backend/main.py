@@ -177,7 +177,10 @@ async def scrape_document(req: ScrapeRequest):
     try:
         chunks = await scrape_url(req.url)
         if not chunks:
-            raise HTTPException(status_code=400, detail="无法从该 URL 提取内容")
+            raise HTTPException(
+                status_code=400,
+                detail="无法从该 URL 提取内容。常见原因：① 网站内容由 JavaScript 动态渲染（SPA）；② 需要登录验证；③ 反爬机制拦截；④ URL 无效"
+            )
 
         ids = [c["id"] for c in chunks]
         texts = [c["text"] for c in chunks]
