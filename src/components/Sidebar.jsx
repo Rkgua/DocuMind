@@ -13,6 +13,29 @@ import {
 } from "lucide-react";
 
 function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onLoadHistory }) {
+  const [visible, setVisible] = useState(true);
+  const sidebarRef = useRef(null);
+  const hideTimerRef = useRef(null);
+
+  // 鼠标移入左侧 20% 区域弹出，移出后收起
+  useEffect(() => {
+    const onMove = (e) => {
+      const triggerZone = window.innerWidth * 0.2;
+      if (e.clientX < triggerZone) {
+        setVisible(true);
+        clearTimeout(hideTimerRef.current);
+      } else {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = setTimeout(() => setVisible(false), 300);
+      }
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
   const [documents, setDocuments] = useState([]);
   const [history, setHistory] = useState([]);
   const [activeHistory, setActiveHistory] = useState(null);
@@ -273,7 +296,7 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
   }, []);
 
   return (
-    <aside className="sidebar">
+    <aside ref={sidebarRef} className={`sidebar ${visible ? '' : 'sidebar-hidden'}`}>
       {/* Header */}
       <div className="sidebar-header">
         <div className="sidebar-logo">

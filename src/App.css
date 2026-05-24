@@ -7,8 +7,10 @@
 
 /* ========== 侧边栏样式 ========== */
 .sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
   width: var(--sidebar-width);
-  min-width: var(--sidebar-width);
   height: 100vh;
   background: var(--bg-sidebar);
   color: var(--text-sidebar);
@@ -16,6 +18,12 @@
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid var(--border-sidebar);
+  z-index: 1000;
+  transform: translateX(0);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sidebar-hidden {
+  transform: translateX(-100%);
 }
 
 .sidebar-header {
@@ -1300,7 +1308,7 @@
 
 .robot-fixed {
   position: fixed;
-  left: calc(var(--sidebar-width) + 16px);
+  left: 16px;
   bottom: 100px;
   z-index: 999;
   line-height: 0;
