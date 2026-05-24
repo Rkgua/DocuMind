@@ -61,18 +61,21 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 100%;
-  padding: 10px 16px;
+  padding: 8px 16px;
   background: var(--accent);
   color: white;
+  border: none;
   border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: 0.9rem;
-  transition: background var(--transition-fast);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform 0.15s ease;
+  width: 100%;
 }
 
 .new-chat-btn:hover {
   background: var(--accent-hover);
+  transform: scale(1.03);
 }
 
 .new-chat-btn svg {
@@ -183,7 +186,8 @@
 .upload-zone:hover,
 .upload-zone.drag-over {
   border-color: var(--accent);
-  background: rgba(37, 99, 235, 0.08);
+  background: rgba(129, 140, 248, 0.1);
+  transform: scale(1.02);
 }
 
 .upload-zone .upload-icon {
@@ -345,11 +349,12 @@
   font-size: 0.8rem;
   font-weight: 500;
   white-space: nowrap;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform 0.15s ease;
 }
 
 .web-scraper .scrape-btn:hover {
   background: var(--accent-hover);
+  transform: scale(1.05);
 }
 
 .web-scraper .scrape-btn:disabled {
@@ -368,15 +373,22 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
-  font-size: 0.82rem;
+  padding: 8px 8px;
   cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), transform 0.15s ease, color 0.15s ease;
 }
 
 .doc-check-item:hover {
   background: var(--bg-sidebar-hover);
+  transform: scale(1.02);
+  color: #ffffff;
+}
+.doc-check-item:hover .doc-name {
+  color: #ffffff;
+}
+.doc-check-item:hover .doc-pages {
+  color: rgba(255,255,255,0.6);
 }
 
 .doc-check-item input[type="checkbox"] {
@@ -434,13 +446,24 @@
   gap: 8px;
   padding: 8px 8px;
   border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), transform 0.15s ease, color 0.15s ease;
   cursor: pointer;
   font-size: 0.82rem;
 }
 
 .history-item:hover {
   background: var(--bg-sidebar-hover);
+  transform: scale(1.02);
+  color: #ffffff;
+}
+.history-item:hover .history-title {
+  color: #ffffff;
+}
+.history-item:hover .history-date {
+  color: rgba(255,255,255,0.6);
+}
+.history-item:hover .history-icon {
+  color: #ffffff;
 }
 
 .history-item.active {
