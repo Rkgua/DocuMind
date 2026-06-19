@@ -9,13 +9,16 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
   const textareaRef = useRef(null)
   const scrollContainerRef = useRef(null)
 
-  // 平滑滚动至最新内容
+  // 平滑滚动至最新内容（流式输出时用 instant 避免卡顿）
   useEffect(() => {
     const container = scrollContainerRef.current
     if (!container) return
     const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150
     if (isNearBottom || isStreaming) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      messagesEndRef.current?.scrollIntoView({
+        behavior: isStreaming ? 'auto' : 'smooth',
+        block: 'end',
+      })
     }
   }, [messages, isStreaming])
 

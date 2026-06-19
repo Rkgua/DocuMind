@@ -24,10 +24,18 @@ dist-ssr
 *.sw?
 .env
 
-# Python cache
+# Python
+venv/
+.venv/
 __pycache__/
 *.pyc
+*.pyo
+*.db
 
 # Runtime data
 data/
 chroma_data/
+
+# IDE
+.idea/
+.opencode/

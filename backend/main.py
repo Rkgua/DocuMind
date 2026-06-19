@@ -3,7 +3,10 @@
 import os
 import sys
 import uuid
+import time
 import tempfile
+from collections import defaultdict
+from datetime import datetime
 from contextlib import asynccontextmanager
 
 # 加载 .env 文件（如果存在）
@@ -12,7 +15,7 @@ dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(dotenv_path)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import select
@@ -33,6 +36,20 @@ from rag.engine import RAGEngine
 from parsers.document_parser import parse_file
 from parsers.web_scraper import scrape_url
 from database import init_db, get_session, ConversationDB, MessageDB, DocumentChunkDB
+
+# ---------- 简单限流 ----------
+_rate_window = 60       # 60 秒窗口
+_rate_limit = 30        # 窗口内最多 30 次（每秒 0.5 次，合理）
+_rate_records: dict[str, list[float]] = defaultdict(list)
+
+
+def _check_rate(client_ip: str) -> bool:
+    """返回 True 表示允许，False 表示超限"""
+    now = time.time()
+    records = _rate_records[client_ip]
+    records[:] = [t for t in records if now - t < _rate_window]
+    records.append(now)
+    return len(records) <= _rate_limit
 
 # ---------- 全局状态 ----------
 vector_store: VectorStore = None
@@ -74,8 +91,12 @@ app.add_middleware(
 # ==================== 聊天 ====================
 
 @app.post("/api/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, request: Request):
     """流式 RAG 对话"""
+    # 限流检查
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate(client_ip):
+        raise HTTPException(status_code=429, detail="请求太频繁，请稍后再试")
     async def generate():
         nonlocal req
         full_content = ""
