@@ -5,7 +5,7 @@ import json
 import numpy as np
 import onnxruntime as ort
 from tokenizers import Tokenizer
-from sqlmodel import select
+from sqlmodel import select, func, delete
 from database import get_session, DocumentChunkDB
 from chromadb import PersistentClient
 from chromadb.config import Settings
@@ -131,42 +131,47 @@ class VectorStore:
         return sources
 
     def list_documents(self) -> list[dict]:
-        """按 file_id 去重列出文档（从 SQLite 统计块数）"""
-        all_data = self.collection.get()
+        """按 file_id 去重列出文档（单次 GROUP BY 查询，无 N+1）"""
+        all_data = self.collection.get(include=["metadatas"])
         seen = {}
         for i in range(len(all_data["ids"])):
             meta = all_data["metadatas"][i]
             file_id = meta.get("file_id", meta.get("source", "unknown"))
             if file_id not in seen:
-                # 从 SQLite 统计该文档的块数
-                with get_session() as db:
-                    stmt = select(DocumentChunkDB).where(DocumentChunkDB.file_id == file_id)
-                    rows = db.exec(stmt).all()
                 seen[file_id] = {
                     "id": file_id,
                     "name": meta.get("filename", file_id),
                     "title": meta.get("title", meta.get("filename", file_id)),
-                    "pages": f"{len(rows)}段",
+                    "pages": "",
                 }
+        # 一次性统计所有文档块数
+        if seen:
+            with get_session() as db:
+                stmt = (
+                    select(DocumentChunkDB.file_id, func.count())
+                    .where(DocumentChunkDB.file_id.in_(seen.keys()))
+                    .group_by(DocumentChunkDB.file_id)
+                )
+                rows = db.exec(stmt).all()
+                for file_id, cnt in rows:
+                    if file_id in seen:
+                        seen[file_id]["pages"] = f"{cnt}段"
         return list(seen.values())
 
     def delete_document(self, file_id: str):
-        # 从 ChromaDB 删除
-        all_data = self.collection.get()
-        ids_to_delete = []
-        for i in range(len(all_data["ids"])):
-            meta = all_data["metadatas"][i]
-            if meta.get("file_id") == file_id or meta.get("source") == file_id:
-                ids_to_delete.append(all_data["ids"][i])
-        if ids_to_delete:
-            self.collection.delete(ids=ids_to_delete)
+        # ChromaDB：按 metadata 过滤删除
+        chunk_data = self.collection.get(
+            include=[],
+            where={"file_id": file_id},
+        )
+        if chunk_data["ids"]:
+            self.collection.delete(ids=chunk_data["ids"])
+        elif not self.collection.get(include=[], where={"source": file_id})["ids"]:
+            pass  # 未找到也无所谓，继续清 SQLite
 
-        # 从 SQLite 删除
+        # SQLite：批量删除
         with get_session() as db:
-            stmt = select(DocumentChunkDB).where(DocumentChunkDB.file_id == file_id)
-            rows = db.exec(stmt).all()
-            for r in rows:
-                db.delete(r)
+            db.exec(delete(DocumentChunkDB).where(DocumentChunkDB.file_id == file_id))
             db.commit()
 
     def find_by_filename(self, filename: str) -> bool:
