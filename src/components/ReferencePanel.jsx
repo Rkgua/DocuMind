@@ -19,7 +19,7 @@ function ReferencePanel({ sources = [] }) {
       {isExpanded && (
         <div className="reference-sources">
           {sources.map((ref, idx) => (
-            <div key={idx} className="reference-source">
+            <div key={ref.title + ref.snippet?.slice(0, 20) || idx} className="reference-source">
               <div className="source-title">
                 <FileText size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                 {ref.title}

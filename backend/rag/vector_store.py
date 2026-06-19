@@ -24,7 +24,8 @@ class BGEOnnxEmbedding:
 
         self._session = ort.InferenceSession(self._model_path, providers=["CPUExecutionProvider"])
         self._tokenizer = Tokenizer.from_file(self._tokenizer_path)
-        # BGE 建议为 query 添加指令前缀
+        self._tokenizer.enable_truncation(max_length=512)
+        self._tokenizer.enable_padding(pad_id=0, pad_token="[PAD]", length=512)
         self._query_prefix = "为这个句子生成表示以用于检索相关文章："
 
     def _find_file(self, root: str, name: str) -> str:
@@ -42,9 +43,7 @@ class BGEOnnxEmbedding:
         norms = np.linalg.norm(vecs, axis=1, keepdims=True)
         return vecs / norms.clip(min=1e-9)
 
-    def _tokenize(self, texts: list[str], max_len: int = 512):
-        self._tokenizer.enable_truncation(max_length=max_len)
-        self._tokenizer.enable_padding(pad_id=0, pad_token="[PAD]", length=max_len)
+    def _tokenize(self, texts: list[str]):
         encoded = self._tokenizer.encode_batch(texts)
         input_ids = np.array([e.ids for e in encoded], dtype=np.int64)
         attention_mask = np.array([e.attention_mask for e in encoded], dtype=np.int64)

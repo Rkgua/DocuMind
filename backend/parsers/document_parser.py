@@ -73,8 +73,7 @@ def _parse_pdf(file_path: str) -> str:
                 text.append(page_text)
         return "\n".join(text)
     except Exception as e:
-        print(f"PDF解析错误: {e}")
-        return ""
+        raise ValueError(f"PDF 解析失败: {e}") from e
 
 
 def _parse_docx(file_path: str) -> str:
@@ -105,5 +104,4 @@ def _parse_pptx(file_path: str) -> str:
                             text.append(t.text)
         return "\n\n".join(text)
     except Exception as e:
-        print(f"PPTX解析错误: {e}")
-        return ""
+        raise ValueError(f"PPTX 解析失败: {e}") from e

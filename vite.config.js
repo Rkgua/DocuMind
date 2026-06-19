@@ -11,4 +11,19 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          markdown: ['react-markdown', 'remark-gfm'],
+          highlight: ['react-syntax-highlighter'],
+          icons: ['lucide-react'],
+        },
+      },
+    },
+  },
 })
