@@ -174,11 +174,19 @@ class VectorStore:
             db.exec(delete(DocumentChunkDB).where(DocumentChunkDB.file_id == file_id))
             db.commit()
 
-    def find_by_filename(self, filename: str) -> bool:
+    def find_any_filename(self, filenames: list[str]) -> str | None:
+        """批量检查，返回第一个已存在的文件名（单次 SQL）"""
+        if not filenames:
+            return None
         with get_session() as db:
-            stmt = select(DocumentChunkDB).where(DocumentChunkDB.filename == filename).limit(1)
+            stmt = select(DocumentChunkDB.filename).where(
+                DocumentChunkDB.filename.in_(filenames)
+            ).limit(1)
             row = db.exec(stmt).first()
-            return row is not None
+            return row if row else None
+
+    def find_by_filename(self, filename: str) -> bool:
+        return self.find_any_filename([filename]) is not None
 
     def get_chunks(self, file_id: str) -> list[dict]:
         with get_session() as db:

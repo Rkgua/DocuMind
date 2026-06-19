@@ -2,7 +2,7 @@
 
 import os
 import uuid
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from parsers.chunker import split_text
 
 
 def parse_file(file_path: str, original_filename: str = "") -> list[dict]:
@@ -39,12 +39,7 @@ def parse_file(file_path: str, original_filename: str = "") -> list[dict]:
                 break
 
     # 分块
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100,
-        separators=["\n\n", "\n", "。", ".", "!", "？", " ", ""],
-    )
-    chunks = splitter.split_text(text)
+    chunks = split_text(text)
 
     # 构造片段
     doc_id = str(uuid.uuid4())

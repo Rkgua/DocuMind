@@ -3,7 +3,7 @@
 import uuid
 import httpx
 from bs4 import BeautifulSoup
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from parsers.chunker import split_text
 
 # 模拟真实浏览器请求头，降低被拦截概率
 _HEADERS = {
@@ -37,12 +37,7 @@ async def scrape_url(url: str) -> list[dict]:
         return []
 
     # 分块
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100,
-        separators=["\n\n", "\n", "。", ".", "!", "？", " ", ""],
-    )
-    chunks = splitter.split_text(text)
+    chunks = split_text(text)
 
     doc_id = str(uuid.uuid4())
     documents = []

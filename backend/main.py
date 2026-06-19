@@ -145,14 +145,17 @@ async def get_references(message_id: str, q: str = ""):
 @app.post("/api/documents/upload")
 async def upload_documents(files: list[UploadFile] = File(...)):
     """上传并解析文档"""
+    # 批量去重
+    all_names = [f.filename for f in files]
+    dup = vector_store.find_any_filename(all_names)
+    if dup:
+        raise HTTPException(
+            status_code=400,
+            detail=f"文件「{dup}」已存在，请勿重复导入",
+        )
+
     results = []
     for file in files:
-        # 去重：检查文件名是否已存在
-        if vector_store.find_by_filename(file.filename):
-            raise HTTPException(
-                status_code=400,
-                detail=f"文件「{file.filename}」已存在，请勿重复导入",
-            )
 
         suffix = os.path.splitext(file.filename)[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:

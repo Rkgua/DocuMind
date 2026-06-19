@@ -90,7 +90,7 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
                       ) : (
                         <span className="typing-cursor" />
                       )}
-                      {(msg.role === 'ai' || msg.role === 'assistant') && msg.content && idx === messages.length - 1 && (
+                      {(msg.role === 'ai' || msg.role === 'assistant') && msg.content && (
                         <ReferencePanel sources={references[msg.id]} />
                       )}
                     </div>

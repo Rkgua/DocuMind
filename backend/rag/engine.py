@@ -2,23 +2,45 @@
 
 import os
 import re
+import asyncio
 from typing import AsyncGenerator
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, APIStatusError
 from rag.vector_store import VectorStore
+
+# 重试配置
+_RETRY_STATUSES = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+
+
+async def _retry_openai(fn, max_retries=_MAX_RETRIES):
+    """带指数退避的 OpenAI API 重试"""
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        try:
+            return await fn()
+        except APIStatusError as e:
+            last_exc = e
+            if e.status_code in _RETRY_STATUSES and attempt < max_retries:
+                await asyncio.sleep(_BASE_DELAY * (2 ** attempt))
+            else:
+                raise
+    raise last_exc
+
 
 RAG_PROMPT = """你是一个基于本地文档回答问题的智能助手。请严格遵守以下规则：
 
 1. 你必须严格基于下方提供的文档内容来回答，不要使用你自身的知识
 2. 如果检索到的文档内容不足以完全回答问题，如实告知用户哪些部分找到了、哪些没找到
 3. 在答案末尾用「参考来源」列出引用的文件名
-4. 使用 Makedown 格式排版
+4. 使用 Markdown 格式排版
 5. 回答要简洁、准确
 
 以下是与用户问题相关的文档内容："""
 
 WEB_PROMPT = """你是一个智能问答助手。用户要求联网回答，请基于你自身的知识来回答问题。注意：
 1. 如实告知用户这是基于你自身知识的回答，不一定与用户本地文档相关
-2. 使用 Makedown 格式排版
+2. 使用 Markdown 格式排版
 3. 回答要简洁、准确"""
 
 NO_CONTEXT_MSG = "我无法从已导入的文档中找到与这个问题相关的信息。请先导入相关文档再让我回答,或明确要求请联网回答让我基于自身知识来回答。"
@@ -69,11 +91,13 @@ class RAGEngine:
                     messages.append(h)
             messages.append({"role": "user", "content": message})
 
-            stream = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                stream=True,
-                temperature=0.7,
+            stream = await _retry_openai(
+                lambda: self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    stream=True,
+                    temperature=0.7,
+                )
             )
             async for chunk in stream:
                 if chunk.choices[0].delta.content:
@@ -122,11 +146,13 @@ class RAGEngine:
 
         messages.append({"role": "user", "content": message})
 
-        stream = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            stream=True,
-            temperature=0.3,
+        stream = await _retry_openai(
+            lambda: self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=True,
+                temperature=0.3,
+            )
         )
         async for chunk in stream:
             if chunk.choices[0].delta.content:
