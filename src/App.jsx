@@ -116,7 +116,7 @@ function App() {
         abortControllerRef.current = null;
       }
     },
-    [selectedDocs],
+    [selectedDocs, totalDocIds, sessionId],
   );
 
   const handleStop = useCallback(() => {

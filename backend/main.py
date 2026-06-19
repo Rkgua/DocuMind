@@ -32,7 +32,7 @@ from rag.vector_store import VectorStore
 from rag.engine import RAGEngine
 from parsers.document_parser import parse_file
 from parsers.web_scraper import scrape_url
-from database import init_db, get_session, ConversationDB, DocumentChunkDB
+from database import init_db, get_session, ConversationDB, MessageDB, DocumentChunkDB
 
 # ---------- 全局状态 ----------
 vector_store: VectorStore = None
@@ -81,12 +81,16 @@ async def chat(req: ChatRequest):
         full_content = ""
         history = []
 
-        # 从 SQLite 加载历史消息作为上下文
+        # 从 MessageDB 加载历史消息作为上下文
         if req.session_id:
             with get_session() as db:
-                conv = db.get(ConversationDB, req.session_id)
-                if conv:
-                    history = conv.get_messages()[-6:]  # 最近3轮
+                stmt = (select(MessageDB)
+                        .where(MessageDB.conversation_id == req.session_id)
+                        .order_by(MessageDB.created_at.desc())
+                        .limit(6))
+                rows = db.exec(stmt).all()
+                history = [{"role": r.role, "content": r.content}
+                           for r in reversed(rows)]  # 时间升序
 
         async for chunk in rag_engine.chat_stream(
             message=req.message,
@@ -96,25 +100,29 @@ async def chat(req: ChatRequest):
             full_content += chunk
             yield chunk
 
-        # 保存会话到 SQLite
+        # 保存消息到 MessageDB
         session_id = req.session_id or str(uuid.uuid4())
         with get_session() as db:
-            existing = db.get(ConversationDB, session_id)
-            if existing:
-                msgs = existing.get_messages()
-                msgs.append({"role": "user", "content": req.message})
-                msgs.append({"role": "assistant", "content": full_content})
-                existing.set_messages(msgs)
-            else:
-                conv = ConversationDB(
-                    id=session_id,
-                    title=req.message[:30],
-                )
-                conv.set_messages([
-                    {"role": "user", "content": req.message},
-                    {"role": "assistant", "content": full_content},
-                ])
+            conv = db.get(ConversationDB, session_id)
+            if not conv:
+                conv = ConversationDB(id=session_id, title=req.message[:30])
                 db.add(conv)
+
+            user_msg = MessageDB(
+                id=str(uuid.uuid4()),
+                conversation_id=session_id,
+                role="user",
+                content=req.message,
+            )
+            db.add(user_msg)
+            if full_content.strip():
+                ai_msg = MessageDB(
+                    id=str(uuid.uuid4()),
+                    conversation_id=session_id,
+                    role="assistant",
+                    content=full_content,
+                )
+                db.add(ai_msg)
             db.commit()
 
     return StreamingResponse(generate(), media_type="text/plain")
@@ -242,16 +250,22 @@ async def get_conversation(session_id: str):
         conv = db.get(ConversationDB, session_id)
         if not conv:
             raise HTTPException(status_code=404, detail="会话未找到")
-        return {"messages": conv.get_messages()}
+        stmt = (select(MessageDB)
+                .where(MessageDB.conversation_id == session_id)
+                .order_by(MessageDB.created_at))
+        rows = db.exec(stmt).all()
+        return {"messages": [{"role": r.role, "content": r.content} for r in rows]}
 
 
 @app.delete("/api/conversations/{session_id}")
 async def delete_conversation(session_id: str):
     """删除历史会话"""
+    from sqlmodel import delete
     with get_session() as db:
         conv = db.get(ConversationDB, session_id)
         if not conv:
             raise HTTPException(status_code=404, detail="会话未找到")
+        db.exec(delete(MessageDB).where(MessageDB.conversation_id == session_id))
         db.delete(conv)
         db.commit()
     return {"ok": True}

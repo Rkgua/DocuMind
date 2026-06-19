@@ -4,6 +4,7 @@ import MarkdownRenderer from './MarkdownRenderer'
 import ReferencePanel from './ReferencePanel'
 function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNewChat }) {
   const [input, setInput] = useState('')
+  const inputRef = useRef('')
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
   const scrollContainerRef = useRef(null)
@@ -28,14 +29,15 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
   }, [input])
 
   const handleSend = useCallback(() => {
-    const text = input.trim()
+    const text = inputRef.current.trim()
     if (!text) return
     onSend(text)
     setInput('')
+    inputRef.current = ''
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-  }, [input, onSend])
+  }, [onSend])
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -110,7 +112,7 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
             ref={textareaRef}
             placeholder={isStreaming ? 'AI 正在回答中，可继续输入补充问题...' : '输入您的问题... (Shift+Enter 换行)'}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); inputRef.current = e.target.value }}
             onKeyDown={handleKeyDown}
             rows={1}
           />

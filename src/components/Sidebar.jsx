@@ -17,19 +17,25 @@ function Sidebar({ selectedDocs, onDocsChange, onTotalDocsChange, onNewChat, onL
   const sidebarRef = useRef(null);
   const hideTimerRef = useRef(null);
 
-  // 鼠标移入左侧 20% 区域弹出，移出后收起
+  // 节流：用 rAF 限制 mouseMove 频率
   useEffect(() => {
+    let ticking = false;
     const onMove = (e) => {
-      const triggerZone = window.innerWidth * 0.2;
-      if (e.clientX < triggerZone) {
-        setVisible(true);
-        clearTimeout(hideTimerRef.current);
-      } else {
-        clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = setTimeout(() => setVisible(false), 300);
-      }
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const triggerZone = window.innerWidth * 0.2;
+        if (e.clientX < triggerZone) {
+          setVisible(true);
+          clearTimeout(hideTimerRef.current);
+        } else {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = setTimeout(() => setVisible(false), 300);
+        }
+      });
     };
-    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mousemove", onMove, { passive: true });
     return () => {
       window.removeEventListener("mousemove", onMove);
       clearTimeout(hideTimerRef.current);

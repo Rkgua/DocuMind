@@ -19,33 +19,36 @@ def get_session() -> Session:
 
 
 class ConversationDB(SQLModel, table=True):
-    """历史对话"""
+    """历史对话元信息"""
     __tablename__ = "conversations"
 
     id: str = Field(primary_key=True)
     title: str = Field(max_length=100)
     created_at: datetime = Field(default_factory=datetime.now)
-    messages: str = Field(default="[]")
 
-    def get_messages(self) -> list[dict]:
-        return json.loads(self.messages)
 
-    def set_messages(self, msgs: list[dict]):
-        self.messages = json.dumps(msgs, ensure_ascii=False)
+class MessageDB(SQLModel, table=True):
+    """单条对话消息"""
+    __tablename__ = "messages"
+
+    id: str = Field(primary_key=True)
+    conversation_id: str = Field(foreign_key="conversations.id", index=True)
+    role: str                                   # "user" | "assistant"
+    content: str = Field(default="")
+    created_at: datetime = Field(default_factory=datetime.now)
 
 
 class DocumentChunkDB(SQLModel, table=True):
     """文档块 — 每个文件切分为多个块，逐行存储"""
     __tablename__ = "document_chunks"
 
-    id: str = Field(primary_key=True)              # 形如 "<file_uuid>_seg0"
-    file_id: str = Field(index=True)               # 文件 UUID
-    filename: str = Field(index=True)               # 原始文件名
-    content: str = Field(default="")                # 块文本
-    page_info: str = Field(default="")              # 页面/段信息
+    id: str = Field(primary_key=True)
+    file_id: str = Field(index=True)
+    filename: str = Field(index=True)
+    content: str = Field(default="")
+    page_info: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.now)
 
-    # 元数据（JSON 字符串，存放 file_id/filename/source 等）
     metadata_json: str = Field(default="{}")
 
     def get_metadata(self) -> dict:
