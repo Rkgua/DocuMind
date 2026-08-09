@@ -14,30 +14,53 @@ function App() {
   const [sessionId, setSessionId] = useState(null);
   const [robotStatus, setRobotStatus] = useState("entrance");
   const abortControllerRef = useRef(null);
-  const isFirstStreamingRef = useRef(true);
+  const robotStatusTimerRef = useRef(null);
 
-  // 页面加载 → 闪亮登场 → 待机1放松
+  const setRobotStatusFor = useCallback((status, duration = 0) => {
+    if (robotStatusTimerRef.current) {
+      clearTimeout(robotStatusTimerRef.current);
+      robotStatusTimerRef.current = null;
+    }
+    setRobotStatus(status);
+    if (duration > 0) {
+      robotStatusTimerRef.current = setTimeout(() => {
+        setRobotStatus("idle");
+        robotStatusTimerRef.current = null;
+      }, duration);
+    }
+  }, []);
+
+  // 页面加载 → 闪亮登场 → 待机
   useEffect(() => {
-    const t = setTimeout(() => setRobotStatus("idle-relax-1"), 1500);
+    const t = setTimeout(() => setRobotStatus("idle"), 1100);
     return () => clearTimeout(t);
   }, []);
 
-  // 流式生成时 → 思考，结束后 → 待机2发光（跳过首次挂载）
   useEffect(() => {
-    if (isFirstStreamingRef.current) {
-      isFirstStreamingRef.current = false;
-      return;
-    }
-    setRobotStatus(isStreaming ? "thinking" : "idle-glow-2");
-  }, [isStreaming]);
+    return () => {
+      if (robotStatusTimerRef.current) {
+        clearTimeout(robotStatusTimerRef.current);
+      }
+    };
+  }, []);
 
-  // 核心发送逻辑，使用 useCallback 包裹以避免不必要的重渲染
+  const handleInputActivity = useCallback(
+    (active) => {
+      if (!isStreaming) {
+        setRobotStatus(active ? "listening" : "idle");
+      }
+    },
+    [isStreaming],
+  );
+
+  // 用户发送后进入思考，收到首个流式片段后进入输出状态
   const handleSend = useCallback(
     async (text) => {
       const userMsg = { role: "user", content: text };
       setMessages((prev) => [...prev, userMsg]);
 
       setIsStreaming(true);
+      setRobotStatusFor("thinking");
       const aiMsgId = Date.now();
       const aiMsg = { role: "ai", content: "", id: aiMsgId };
       setMessages((prev) => [...prev, aiMsg]);
@@ -46,6 +69,8 @@ function App() {
       // 能立刻中断正在进行的网络请求，防止内存泄漏和状态错乱
       const controller = new AbortController();
       abortControllerRef.current = controller;
+      let hasOutput = false;
+      let terminalStatusSet = false;
 
       try {
         const response = await fetch("/api/chat", {
@@ -75,6 +100,10 @@ function App() {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
+          if (chunk && !hasOutput) {
+            hasOutput = true;
+            setRobotStatusFor("responding");
+          }
           fullContent += chunk;
           setMessages((prev) =>
             prev.map((m) =>
@@ -101,6 +130,9 @@ function App() {
         } catch {
           // 引用数据可选，获取失败不影响主流程
         }
+        if (controller.signal.aborted) return;
+        terminalStatusSet = true;
+        setRobotStatusFor("success", 900);
       } catch (err) {
         if (err.name !== "AbortError") {
           setMessages((prev) =>
@@ -110,13 +142,16 @@ function App() {
                 : m,
             ),
           );
+          terminalStatusSet = true;
+          setRobotStatusFor("error", 1100);
         }
       } finally {
         setIsStreaming(false);
+        if (!terminalStatusSet) setRobotStatus("idle");
         abortControllerRef.current = null;
       }
     },
-    [selectedDocs, totalDocIds, sessionId],
+    [selectedDocs, totalDocIds, sessionId, setRobotStatusFor],
   );
 
   const handleStop = useCallback(() => {
@@ -148,11 +183,6 @@ function App() {
         <RobotAvatar
           status={robotStatus}
           size={250}
-          onClick={() =>
-            setRobotStatus((s) =>
-              s === "thinking" ? "idle-relax-1" : "thinking",
-            )
-          }
         />
       </div>
       <Sidebar
@@ -169,6 +199,7 @@ function App() {
         isStreaming={isStreaming}
         references={references}
         onNewChat={handleNewChat}
+        onInputActivity={handleInputActivity}
       />
     </div>
   );

@@ -14,14 +14,17 @@ export default defineConfig({
   build: {
     target: 'es2020',
     cssCodeSplit: true,
-    minify: 'esbuild',
+    minify: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          markdown: ['react-markdown', 'remark-gfm'],
-          highlight: ['react-syntax-highlighter'],
-          icons: ['lucide-react'],
+        manualChunks(id) {
+          const moduleId = id.replaceAll('\\\\', '/');
+          if (!moduleId.includes('/node_modules/')) return undefined;
+          if (moduleId.includes('/react/') || moduleId.includes('/react-dom/')) return 'vendor';
+          if (moduleId.includes('/react-markdown/') || moduleId.includes('/remark-gfm/')) return 'markdown';
+          if (moduleId.includes('/react-syntax-highlighter/')) return 'highlight';
+          if (moduleId.includes('/lucide-react/')) return 'icons';
+          return undefined;
         },
       },
     },

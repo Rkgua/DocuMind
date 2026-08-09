@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Square, Trash2, Sparkles } from 'lucide-react'
 import MarkdownRenderer from './MarkdownRenderer'
 import ReferencePanel from './ReferencePanel'
-function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNewChat }) {
+function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNewChat, onInputActivity }) {
   const [input, setInput] = useState('')
   const inputRef = useRef('')
   const messagesEndRef = useRef(null)
@@ -115,7 +115,14 @@ function ChatArea({ messages, onSend, onStop, isStreaming, references = {}, onNe
             ref={textareaRef}
             placeholder={isStreaming ? 'AI 正在回答中，可继续输入补充问题...' : '输入您的问题... (Shift+Enter 换行)'}
             value={input}
-            onChange={(e) => { setInput(e.target.value); inputRef.current = e.target.value }}
+            onFocus={() => onInputActivity?.(true)}
+            onBlur={() => { if (!input.trim()) onInputActivity?.(false) }}
+            onChange={(e) => {
+              const nextValue = e.target.value
+              setInput(nextValue)
+              inputRef.current = nextValue
+              onInputActivity?.(Boolean(nextValue.trim()))
+            }}
             onKeyDown={handleKeyDown}
             rows={1}
           />
